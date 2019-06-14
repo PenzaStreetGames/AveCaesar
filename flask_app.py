@@ -124,7 +124,6 @@ with open(f"/home/{site}/mysite/quest.json", "r",
 hint_button_text = "Подсказка"
 
 
-
 @app.route('/red_dream', methods=['POST'])
 def main():
     """Каркас диалога с пользователем и Алисой"""
