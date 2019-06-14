@@ -3,7 +3,7 @@ import logging
 import random
 import json
 
-site = "PenzaStreetNetworks"
+site = "PenzaStreetServers"
 
 
 class User:
