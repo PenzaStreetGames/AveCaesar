@@ -11,17 +11,14 @@ class User:
     quest_data = {}
 
     def __init__(self, id):
-        self.set_base(id)
-
-    def set_base(self, id):
         self.move = 0
         self.id = id
         self.period = ""
         self.government = quest["start_values"]["government"]
         self.economy = quest["start_values"]["economy"]
         self.military = quest["start_values"]["military"]
-        self.control = quest["start_values"]["control"]
-        self.communism = quest["start_values"]["communism"]
+        self.territory = quest["start_values"]["territory"]
+        self.prosperity = quest["start_values"]["prosperity"]
         self.questions = []
         self.jumps_questions = []
         self.fail = "questions limit"
@@ -32,8 +29,8 @@ class User:
             "government": self.government,
             "economy": self.economy,
             "military": self.military,
-            "control": self.control,
-            "communism": self.communism,
+            "territory": self.territory,
+            "prosperity": self.prosperity,
         }
 
     def change_params(self, params):
@@ -41,14 +38,14 @@ class User:
         self.government += params["government"]
         self.economy += params["economy"]
         self.military += params["military"]
-        self.control += params["control"]
-        self.communism += params["communism"]
-        step = 0.35
+        self.territory += params["territory"]
+        self.prosperity += params["prosperity"]
+        step = quest["step"]
         delta = params.copy()
-        delta["communism"] = (sum([self.government, self.economy,
-                                    self.military, self.control])
+        delta["prosperity"] = (sum([self.government, self.economy,
+                                    self.military, self.territory])
                               / 4 - 50) * step
-        self.communism += delta["communism"]
+        self.prosperity += delta["prosperity"]
         return delta
 
     def print_state(self):
@@ -56,16 +53,16 @@ class User:
         current = sessionStorage[self.id]["current_question"]
         state = f"{round(self.government, 2)}, {round(self.economy, 2)}, " \
             f"{round(self.military, 2)}, " \
-            f"{round(self.control, 2)}, ({round(self.communism, 2)})"
+            f"{round(self.territory, 2)}, ({round(self.prosperity, 2)})"
         return f"{name}: {state} [{current}]"
 
     def __str__(self):
         """Возвращает параметры страны в виде строки"""
-        return f"Политическая мощь: {round(self.government, 2)}\n" + \
-               f"Экономика: {round(self.economy, 2)}\n" + \
-               f"Военная мощь: {round(self.military, 2)}\n" + \
-               f"Котроль над народом: {round(self.control, 2)}\n" + \
-               f"Коммунизм: {round(self.communism, 2)}\n"
+        return f"Политическое единство: {round(self.government, 2)}\n" + \
+               f"Наполненость казны: {round(self.economy, 2)}\n" + \
+               f"Размер легионов: {round(self.military, 2)}\n" + \
+               f"Территория: {round(self.territory, 2)}\n" + \
+               f"Процветание: {round(self.prosperity, 2)}\n"
 
 
 class Question:
@@ -124,7 +121,7 @@ with open(f"/home/{site}/mysite/quest.json", "r",
 hint_button_text = "Подсказка"
 
 
-@app.route('/red_dream', methods=['POST'])
+@app.route('/ave_caesar', methods=['POST'])
 def main():
     """Каркас диалога с пользователем и Алисой"""
     # logging.info('Request: %r', request.json)
@@ -165,6 +162,7 @@ def start(req, res):
 
     if answer == "Создатели":
         res['response']['text'] = quest["credits"]
+        init_buttons(req, res)
         return
 
     if req['session']['new']:
@@ -212,7 +210,7 @@ def handle_dialog(req, res):
     user = sessionStorage[user_id]["user"]
     logging.info(user.print_state())
     answer = transform_answer(req["request"]["original_utterance"])
-    if sessionStorage[user_id].get('end_quest') == True:
+    if sessionStorage[user_id].get('end_quest'):
         return end(req, res)
 
     if answer in ["Статистика", "статистика"]:
@@ -271,7 +269,8 @@ def handle_dialog(req, res):
                 return
             if current in user.jumps_questions:
                 res['response']['text'] = ""
-            res['response']['text'] += f"\n***\n {str(next_question)}"
+            res['response']['text'] = res["response"].get("text", "") + \
+                f"\n***\n {str(next_question)}"
             res['response']['tts'] = res["response"].get("tts", "") + " " + str(
                 next_question)
 
@@ -284,21 +283,22 @@ def handle_dialog(req, res):
         if answer == "Завершить правление" or current in user.jumps_questions:
             res['response']['card'] = {}
             res['response']['card']['type'] = 'BigImage'
-            res['response']['card']['title'] = user.jumps_questions[
-                                                   current].title() + "." + quest["jumps"][
-                                                   user.jumps_questions[current]]["text"]
+            jump = user.jumps_questions[current]
+            res['response']['card']['title'] = jump.title() + "." + quest[
+                "jumps"][jump]["text"]
             res['response']['card']['image_id'] = quest["jumps"][
                 user.jumps_questions[current]]["image"]
-            res['response']['text'] = user.jumps_questions[current].title()
+            res['response']['text'] = jump.title()
             res["response"]["tts"] = res["response"].get("tts", "") + quest[
-                "jumps"][user.jumps_questions[current]]["text"]
+                "jumps"][jump]["text"]
 
             init_buttons(req, res, ["Начать правление"])
             del user.jumps_questions[current]
             return
         res['response']['text'] = str(next_question)
 
-        init_buttons(req, res, next_question.get_answers_titles() + [hint_button_text, "Статистика"])
+        init_buttons(req, res, next_question.get_answers_titles() + [
+            hint_button_text, "Статистика"])
         sessionStorage[user_id]['current_question'] += 1
         sessionStorage[user_id]['echo_effect'] = True
 
@@ -332,7 +332,7 @@ def end(req, res):
         req['session']['new'] = True
         return start(req, res)
     elif answer == "Завершить":
-        res["response"]["text"] = f"Спасибо, что поиграл со мной " \
+        res["response"]["text"] = f"Спасибо, что поиграл со мной, " \
             f"{sessionStorage[user_id]['first_name'].title()}! Пока."
         res["end_session"] = True
     else:
@@ -472,7 +472,7 @@ def make_questions_list(data):
         if counts[question["period"]] <= this_period["length"]:
             questions_list.append(question)
 
-    questions_list.sort(key=lambda el: el["date"])
+    questions_list.sort(key=lambda el: float(el["date"]))
     jumps_questions = {0: questions_list[0]["period"]}
 
     for item, question in enumerate(questions_list):
@@ -487,31 +487,31 @@ def string_effects(effects, delta=False):
     government = round(effects["government"], 2)
     economy = round(effects["economy"], 2)
     military = round(effects["military"], 2)
-    control = round(effects["control"], 2)
-    communism = round(effects["communism"], 2)
+    territory = round(effects["territory"], 2)
+    prosperity = round(effects["prosperity"], 2)
     if not delta:
-        return f"п {government} э {economy} в {military} н {control} к " \
-               f"{communism}"
+        return f"п {government} э {economy} в {military} н {territory} к " \
+               f"{prosperity}"
     else:
         signs = [
             "+" if government >= 0 else "",
             "+" if economy >= 0 else "",
             "+" if military >= 0 else "",
-            "+" if control >= 0 else "",
-            "+" if communism >= 0 else ""
+            "+" if territory >= 0 else "",
+            "+" if prosperity >= 0 else ""
         ]
-        return f"\n Политическая мощь: {signs[0]}{government}\n" \
-               f"Эконмическая мощь: {signs[1]}{economy}\n" \
-               f"Военная мощь: {signs[2]}{military}\n" \
-               f"Контроль над народом: {signs[3]}{control}\n" \
-               f"Коммунизм: {signs[4]}{communism}"
+        return f"\n Политическое единство: {signs[0]}{government}\n" \
+               f"Наполненость казны: {signs[1]}{economy}\n" \
+               f"Размер легионов: {signs[2]}{military}\n" \
+               f"Территория: {signs[3]}{territory}\n" \
+               f"Процветание: {signs[4]}{prosperity}"
 
 
 def get_records():
     with open(f"/home/{site}/mysite/records.json", "r",
               encoding="utf8") as file:
         records = json.loads(file.read())
-    winners = list(filter(lambda user: user[1][0] == "communism max",
+    winners = list(filter(lambda user: user[1][0] == "prosperity max",
                           records.items()))
     winners = list(sorted(winners, key=lambda user: user[1][1]))[:10]
     winners_number = 10
