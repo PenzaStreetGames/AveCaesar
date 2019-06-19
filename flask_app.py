@@ -166,6 +166,12 @@ def start(req, res):
         return
 
     if req['session']['new']:
+        greeting = quest["greeting_message"]
+        print_image(req, res,
+                    title=greeting["text"],
+                    image_id=greeting["image"],
+                    text=greeting["text"],
+                    tts=f'{greeting["sound"]} {greeting["text"]}')
         res['response']['text'] = quest["greeting"]
         user = User(user_id)
         user.questions, user.jumps_questions = make_questions_list(
@@ -281,16 +287,14 @@ def handle_dialog(req, res):
 
             return
         if answer == "Завершить правление" or current in user.jumps_questions:
-            res['response']['card'] = {}
-            res['response']['card']['type'] = 'BigImage'
             jump = user.jumps_questions[current]
-            res['response']['card']['title'] = jump.title() + "." + quest[
-                "jumps"][jump]["text"]
-            res['response']['card']['image_id'] = quest["jumps"][
-                user.jumps_questions[current]]["image"]
-            res['response']['text'] = jump.title()
-            res["response"]["tts"] = res["response"].get("tts", "") + quest[
-                "jumps"][jump]["text"]
+            print_image(req, res,
+                        title=jump.title() + "." + quest["jumps"][jump]["text"],
+                        image_id=quest["jumps"][user.jumps_questions[
+                            current]]["image"],
+                        text=jump.title(),
+                        tts=res["response"].get("tts", "") + quest["jumps"][
+                            jump]["text"])
 
             init_buttons(req, res, ["Начать правление"])
             del user.jumps_questions[current]
@@ -353,6 +357,15 @@ def analyze_answer(req, res, effect, params):
 
         return
     return
+
+
+def print_image(req, res, title, image_id, text, tts):
+    res['response']['card'] = {}
+    res['response']['card']['type'] = 'BigImage'
+    res['response']['card']['title'] = title
+    res['response']['card']['image_id'] = image_id
+    res['response']['text'] = text
+    res["response"]["tts"] = tts
 
 
 def get_first_name(req):
