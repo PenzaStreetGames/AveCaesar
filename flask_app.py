@@ -149,6 +149,7 @@ def start(req, res):
     user_id = req['session']['user_id']
 
     answer = transform_answer(req["request"]["original_utterance"])
+    logging.info(answer)
 
     if answer == "Помощь":
         res['response']['text'] = quest["help"]
@@ -305,7 +306,6 @@ def handle_dialog(req, res):
             hint_button_text, "Статистика"])
         sessionStorage[user_id]['current_question'] += 1
         sessionStorage[user_id]['echo_effect'] = True
-
         return
     except IndexError:
         sessionStorage[user_id]['end_quest'] = True
