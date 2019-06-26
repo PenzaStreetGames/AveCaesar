@@ -149,7 +149,8 @@ def start(req, res):
     user_id = req['session']['user_id']
 
     answer = transform_answer(req["request"]["original_utterance"])
-    logging.info(answer)
+    if answer != "Ping":
+        logging.info(answer)
 
     if answer == "Помощь":
         res['response']['text'] = quest["help"]
