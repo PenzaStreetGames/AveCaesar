@@ -463,6 +463,8 @@ def make_questions_list(data):
         if item and question["period"] != questions_list[item - 1]["period"]:
             jumps_questions[item] = question["period"]
 
+    logging.info(questions_list)
+    logging.info(jumps_questions)
     return questions_list, jumps_questions
 
 
