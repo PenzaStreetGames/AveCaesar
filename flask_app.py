@@ -1,9 +1,20 @@
 from flask import Flask, request
+from copy import deepcopy
 import logging
 import random
 import json
 
 site = "PenzaStreetServers"
+compulsory_questions = [
+    {
+        "title": "Помощь",
+        "hide": False
+    },
+    {
+        "title": "Что ты умеешь",
+        "hide": False
+    }
+]
 
 
 class User:
@@ -44,7 +55,7 @@ class User:
         delta = params.copy()
         delta["prosperity"] = (sum([self.government, self.economy,
                                     self.military, self.territory])
-                              / 4 - 50) * step
+                               / 4 - 50) * step
         self.prosperity += delta["prosperity"]
         return delta
 
@@ -124,8 +135,6 @@ hint_button_text = "Подсказка"
 @app.route('/ave_caesar', methods=['POST'])
 def main():
     """Каркас диалога с пользователем и Алисой"""
-    # logging.info('Request: %r', request.json)
-
     User.quest_data = quest
 
     response = {
@@ -136,10 +145,7 @@ def main():
         }
     }
     user_id = request.json['session']['user_id']
-
     start(request.json, response)
-
-    # logging.info('Response: %r', request.json)
 
     return json.dumps(response)
 
@@ -186,16 +192,7 @@ def start(req, res):
             "echo_effect": False,
             "buttons": [],
         }
-        res['response']['buttons'] = [
-            {
-                "title": "Помощь",
-                "hide": False
-            },
-            {
-                "title": "Что ты умеешь",
-                "hide": False
-            }
-        ]
+        res['response']['buttons'] = deepcopy(compulsory_questions)
         return
 
     if sessionStorage[user_id]['first_name'] is None:
@@ -221,20 +218,19 @@ def handle_dialog(req, res):
     if sessionStorage[user_id].get('end_quest'):
         return end(req, res)
 
-    if answer in ["Статистика", "статистика"]:
+    if answer == "Статистика":
         current = sessionStorage[user_id]['current_question'] - 1
         question = Question(user.questions[current])
         res['response']['text'] = str(user) + f"\n {str(question)}"
         init_buttons(req, res)
         return
-    if answer in ["Помощь", "помощь"]:
+    if answer == "Помощь":
         res['response']['text'] = quest["help"]
         init_buttons(req, res)
         return
-    elif answer in ["Рекорды", "рекорды"]:
+    elif answer == "Рекорды":
         res['response']['text'] = get_records()
         return
-
     posible_answers = list(map(
         transform_answer, sessionStorage[user_id]["buttons"]))
     if posible_answers and not answer in posible_answers:
@@ -260,7 +256,7 @@ def handle_dialog(req, res):
                 if reference:
                     question = Question(user.questions[current])
                     res['response']['text'] = reference + \
-                        f"\n***\n{str(past_question)}"
+                                              f"\n***\n{str(past_question)}"
                     res["response"]["tts"] = f"{reference} {past_question}"
                 else:
                     res["response"]["text"] = quest["alternative_hint"]
@@ -278,7 +274,7 @@ def handle_dialog(req, res):
             if current in user.jumps_questions:
                 res['response']['text'] = ""
             res['response']['text'] = res["response"].get("text", "") + \
-                f"\n***\n {str(next_question)}"
+                                      f"\n***\n {str(next_question)}"
             res['response']['tts'] = res["response"].get("tts", "") + " " + str(
                 next_question)
 
@@ -352,10 +348,9 @@ def analyze_answer(req, res, effect, params):
     user_id = req['session']['user_id']
     user = sessionStorage[user_id]['user']
     delta = user.change_params(params)
-    res['response']['text'] = effect + string_effects(delta, delta=True)
+    res['response']['text'] = effect + string_effects(delta)
     if not is_liveable(req, res, user.get_params()):
         res['response']['text'] += '\nИгра закончена!'
-
         return
     return
 
@@ -394,13 +389,15 @@ def is_liveable(req, res, params):
         if params[param] >= quest["value_max"]:
             echo += "\n\n" + User.quest_data["endings"][f"{param} max"]
             res['response']["text"] = echo
-            res["response"]["tts"] = res["response"].get("tts", "") + "\n" + echo
+            res["response"]["tts"] = res["response"].get("tts",
+                                                         "") + "\n" + echo
             user.fail = f"{param} max"
             return False
         elif params[param] <= quest["value_min"]:
             echo += "\n\n" + User.quest_data["endings"][f"{param} min"]
             res['response']["text"] = echo
-            res["response"]["tts"] = res["response"].get("tts", "") + "\n" + echo
+            res["response"]["tts"] = res["response"].get("tts",
+                                                         "") + "\n" + echo
             user.fail = f"{param} min"
             return False
         elif params[param] >= quest["value_lot"]:
@@ -430,48 +427,21 @@ def question(req, res, text, variants, results):
 def init_buttons(req, res, buttons=None):
     """Инициализация кнопок"""
     if not sessionStorage:
-        res['response']['buttons'] = [
-            {
-                "title": "Помощь",
-                "hide": False
-            },
-            {
-                "title": "Что ты умеешь",
-                "hide": False
-            }
-        ]
+        res['response']['buttons'] = deepcopy(compulsory_questions)
         return
     user_id = req['session']['user_id']
     if not buttons:
         if not sessionStorage[user_id].get("buttons"):
-            res['response']['buttons'] = [
-                {
-                    "title": "Помощь",
-                    "hide": False
-                },
-                {
-                    "title": "Что ты умеешь",
-                    "hide": False
-                }
-            ]
+            res['response']['buttons'] = deepcopy(compulsory_questions)
             return
         buttons = sessionStorage[user_id]["buttons"].copy()
     res['response']['buttons'] = [
-        {
-            'title': button,
-            'hide': True
-        } for button in buttons
+                                     {
+                                         'title': button,
+                                         'hide': True
+                                     } for button in buttons
 
-    ] + [
-        {
-            "title": "Помощь",
-            "hide": False
-        },
-        {
-            "title": "Что ты умеешь",
-            "hide": False
-        }
-    ]
+                                 ] + deepcopy(compulsory_questions)
     sessionStorage[user_id]["buttons"] = buttons.copy()
 
 
@@ -496,29 +466,25 @@ def make_questions_list(data):
     return questions_list, jumps_questions
 
 
-def string_effects(effects, delta=False):
+def string_effects(effects):
     """Вывод изменений в стране в читаемом виде"""
     government = round(effects["government"], 2)
     economy = round(effects["economy"], 2)
     military = round(effects["military"], 2)
     territory = round(effects["territory"], 2)
     prosperity = round(effects["prosperity"], 2)
-    if not delta:
-        return f"п {government} э {economy} в {military} н {territory} к " \
-               f"{prosperity}"
-    else:
-        signs = [
-            "+" if government >= 0 else "",
-            "+" if economy >= 0 else "",
-            "+" if military >= 0 else "",
-            "+" if territory >= 0 else "",
-            "+" if prosperity >= 0 else ""
-        ]
-        return f"\n Политическое единство: {signs[0]}{government}\n" \
-               f"Наполненость казны: {signs[1]}{economy}\n" \
-               f"Размер легионов: {signs[2]}{military}\n" \
-               f"Территория: {signs[3]}{territory}\n" \
-               f"Процветание: {signs[4]}{prosperity}"
+    signs = [
+        "+" if government >= 0 else "",
+        "+" if economy >= 0 else "",
+        "+" if military >= 0 else "",
+        "+" if territory >= 0 else "",
+        "+" if prosperity >= 0 else ""
+    ]
+    return f"\n Политическое единство: {signs[0]}{government}\n" \
+        f"Наполненость казны: {signs[1]}{economy}\n" \
+        f"Размер легионов: {signs[2]}{military}\n" \
+        f"Территория: {signs[3]}{territory}\n" \
+        f"Процветание: {signs[4]}{prosperity}"
 
 
 def get_records():
@@ -533,7 +499,7 @@ def get_records():
     winners = list(map(lambda user: f"\t{user[0]} \t\t\t {user[1][1]}",
                        winners))
     if len(winners) < winners_number:
-        winners += ["\t - \t\t\t -"] * (winners_number - len(winners))
+        winners += ["\t - \t -"] * (winners_number - len(winners))
     result = "\n".join([header] + winners)
     return result
 
